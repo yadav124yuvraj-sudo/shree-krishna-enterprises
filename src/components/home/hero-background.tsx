@@ -41,26 +41,38 @@ export function HeroBackground() {
 
   return (
     <div aria-hidden="true" className="absolute inset-0 overflow-hidden bg-[#141413]">
-      {/* Animated Ken Burns Interior Slideshow */}
       {SLIDES.map((slide, idx) => {
         const isActive = idx === activeIndex;
         return (
           <div
             key={idx}
-            className={`absolute inset-0 bg-cover bg-center bg-no-repeat transition-all duration-[2000ms] ease-in-out ${
-              isActive ? "scale-110 opacity-100" : "scale-100 opacity-0"
+            className={`absolute inset-0 transition-opacity duration-[1800ms] ease-in-out ${
+              isActive ? "opacity-100" : "opacity-0"
             }`}
-            style={{
-              backgroundImage: `url('${slide.src}'), url('${slide.fallback}')`,
-              transitionProperty: "opacity, transform",
-              transitionDuration: isActive ? "1800ms, 7000ms" : "1800ms, 1800ms",
-            }}
-          />
+          >
+            {/* Soft blurred fill behind uncropped mobile image */}
+            <div
+              className="absolute inset-0 scale-110 bg-cover bg-center opacity-35 blur-xl md:hidden"
+              style={{
+                backgroundImage: `url('${slide.src}'), url('${slide.fallback}')`,
+              }}
+            />
+
+            {/* Main Slide: Full uncropped frame on mobile (bg-contain), full-bleed Ken Burns on desktop (md:bg-cover) */}
+            <div
+              className={`absolute inset-0 bg-contain bg-top bg-no-repeat transition-transform duration-[7000ms] ease-in-out md:bg-cover md:bg-center ${
+                isActive ? "scale-100 md:scale-110" : "scale-100"
+              }`}
+              style={{
+                backgroundImage: `url('${slide.src}'), url('${slide.fallback}')`,
+              }}
+            />
+          </div>
         );
       })}
 
       {/* Luxury Dark Readability Vignette & Bottom Fade */}
-      <div className="absolute inset-0 bg-gradient-to-b from-black/75 via-black/50 to-[#141413]" />
+      <div className="absolute inset-0 bg-gradient-to-b from-black/70 via-black/45 to-[#141413]" />
       <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,transparent_25%,rgba(0,0,0,0.55)_100%)]" />
     </div>
   );
