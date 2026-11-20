@@ -1,12 +1,15 @@
-"use client";
+﻿"use client";
 
-import { useActionState } from "react";
+import { useActionState, useState, type ChangeEvent } from "react";
 import Image from "next/image";
 import { Button } from "@/components/ui/button";
 import { Field, Input, Textarea } from "@/components/ui/input";
 import { Checkbox, Select } from "@/components/ui/select";
+import { compressImage } from "@/lib/compress-image";
 import type { FormState } from "./actions";
 import type { Category } from "@/lib/types";
+
+const MAX_DIRECT_BYTES = 3.5 * 1024 * 1024; // 3.5 MB
 
 export type DesignFormValues = {
   title: string;
@@ -34,10 +37,34 @@ export function DesignForm({
   submitLabel: string;
 }) {
   const [state, formAction, pending] = useActionState<FormState, FormData>(action, null);
+  const [compressing, setCompressing] = useState(false);
+  const [sizeNote, setSizeNote] = useState<string | null>(null);
   const err = state?.fieldErrors ?? {};
 
   const byKind = new Map<string, Category[]>();
   for (const c of categories) byKind.set(c.kind, [...(byKind.get(c.kind) ?? []), c]);
+
+  async function handleCoverChange(e: ChangeEvent<HTMLInputElement>) {
+    const input = e.currentTarget;
+    const file = input.files?.[0];
+    setSizeNote(null);
+    if (!file || file.size <= MAX_DIRECT_BYTES) return;
+
+    setCompressing(true);
+    try {
+      const origMB = (file.size / (1024 * 1024)).toFixed(1);
+      const compressed = await compressImage(file);
+      const newMB = (compressed.size / (1024 * 1024)).toFixed(2);
+      const dt = new DataTransfer();
+      dt.items.add(compressed);
+      input.files = dt.files;
+      setSizeNote(`Large photo optimized (${origMB} MB → ${newMB} MB) for smooth upload.`);
+    } catch {
+      setSizeNote("Could not auto-compress this file. Please choose an image under 4 MB.");
+    } finally {
+      setCompressing(false);
+    }
+  }
 
   return (
     <form action={formAction} className="max-w-2xl space-y-6" noValidate>
@@ -91,8 +118,11 @@ export function DesignForm({
           type="file"
           name="cover_image"
           accept="image/jpeg,image/png,image/webp,image/avif"
+          onChange={handleCoverChange}
           className="mt-2 block w-full text-sm text-stone file:mr-4 file:h-11 file:rounded-sm file:border-0 file:bg-charcoal file:px-4 file:text-warm-white"
         />
+        {compressing ? <p className="mt-1.5 text-xs text-stone">Optimizing large photo...</p> : null}
+        {sizeNote ? <p className="mt-1.5 text-xs text-green-900">{sizeNote}</p> : null}
       </div>
 
       <div className="flex flex-wrap gap-6">
@@ -109,8 +139,8 @@ export function DesignForm({
         </p>
       ) : null}
 
-      <Button type="submit" size="lg" disabled={pending}>
-        {pending ? "Saving" : submitLabel}
+      <Button type="submit" size="lg" disabled={pending || compressing}>
+        {compressing ? "Preparing photo..." : pending ? "Saving" : submitLabel}
       </Button>
     </form>
   );
