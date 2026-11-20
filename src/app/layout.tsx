@@ -6,6 +6,7 @@ import "./globals.css";
 const siteUrl = (process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000").replace(/\/$/, "");
 
 export const metadata: Metadata = {
+  verification: { google: "iyb9gD1-5P3sE1vlNOEuvrAqjraDUFbJHQZ2eufM-M4" },
   metadataBase: new URL(siteUrl),
   title: {
     default: "Shree Krishna Enterprises | POP & PVC Interior Designs",
