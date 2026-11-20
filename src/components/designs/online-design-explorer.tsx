@@ -1,10 +1,9 @@
 ﻿"use client";
 
-import { useEffect, useState } from "react";
+import { useMemo, useState } from "react";
 import Link from "next/link";
 import {
   ExternalLink,
-  Loader2,
   MessageCircle,
   Search,
   Sparkles,
@@ -12,24 +11,6 @@ import {
 } from "lucide-react";
 import type { OnlineDesignItem } from "@/app/api/designs/search/route";
 import { buildEnquiryMessage, buildWhatsAppLink } from "@/lib/whatsapp";
-
-const CATEGORIES = [
-  "All",
-  "POP False Ceiling",
-  "PVC Wall Panels",
-  "LED Cove Lighting",
-  "Bedroom Ceiling",
-  "PVC Ceiling",
-  "Commercial & Office",
-];
-
-const QUICK_SEARCHES = [
-  "Living Room POP",
-  "Wooden PVC Panel",
-  "Bedroom LED Cove",
-  "TV Unit Wall",
-  "Chandelier Molding",
-];
 
 export function OnlineDesignExplorer({
   adminDesigns = [],
@@ -39,56 +20,32 @@ export function OnlineDesignExplorer({
   whatsappNumber: string;
 }) {
   const [query, setQuery] = useState("");
-  const [debouncedQuery, setDebouncedQuery] = useState("");
   const [category, setCategory] = useState("All");
-  const [onlineItems, setOnlineItems] = useState<OnlineDesignItem[]>([]);
-  const [loading, setLoading] = useState(true);
   const [previewItem, setPreviewItem] = useState<OnlineDesignItem | null>(null);
 
-  useEffect(() => {
-    const timer = setTimeout(() => setDebouncedQuery(query), 300);
-    return () => clearTimeout(timer);
-  }, [query]);
+  const categories = useMemo(() => {
+    const unique = Array.from(
+      new Set(adminDesigns.map((d) => d.category).filter(Boolean)),
+    );
+    return ["All", ...unique];
+  }, [adminDesigns]);
 
-  useEffect(() => {
-    let active = true;
-    setLoading(true);
-    const params = new URLSearchParams();
-    if (debouncedQuery) params.set("q", debouncedQuery);
-    if (category) params.set("category", category);
-
-    fetch(`/api/designs/search?${params.toString()}`)
-      .then((res) => res.json())
-      .then((data) => {
-        if (active) {
-          setOnlineItems(data.items || []);
-          setLoading(false);
-        }
-      })
-      .catch(() => {
-        if (active) setLoading(false);
-      });
-
-    return () => {
-      active = false;
-    };
-  }, [debouncedQuery, category]);
-
-  const filteredAdmin = adminDesigns.filter((item) => {
-    const qLower = debouncedQuery.toLowerCase();
-    const matchesCat = category === "All" || item.category === category;
-    const matchesQ =
-      !qLower ||
-      item.title.toLowerCase().includes(qLower) ||
-      item.category.toLowerCase().includes(qLower);
-    return matchesCat && matchesQ;
-  });
-
-  const combined = [...filteredAdmin, ...onlineItems];
+  const filteredDesigns = useMemo(() => {
+    const qLower = query.trim().toLowerCase();
+    return adminDesigns.filter((item) => {
+      const matchesCat = category === "All" || item.category === category;
+      const matchesQ =
+        !qLower ||
+        item.title.toLowerCase().includes(qLower) ||
+        item.category.toLowerCase().includes(qLower) ||
+        item.tags?.some((t) => t.toLowerCase().includes(qLower));
+      return matchesCat && matchesQ;
+    });
+  }, [adminDesigns, category, query]);
 
   return (
     <div>
-      {/* Search Bar & Quick Suggestions */}
+      {/* Search Bar */}
       <div className="mx-auto max-w-3xl">
         <div className="relative flex items-center">
           <Search
@@ -99,7 +56,7 @@ export function OnlineDesignExplorer({
             type="search"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            placeholder="Search POP ceiling, PVC wall panel, bedroom LED cove, TV unit..."
+            placeholder="Search our POP ceiling & PVC wall panel designs..."
             className="w-full rounded-full border-2 border-[#D4B97B] bg-white py-4 pl-13 pr-12 text-sm font-medium text-charcoal shadow-md outline-none transition placeholder:text-stone/65 focus:border-[#9A742E] focus:ring-4 focus:ring-[#d4af37]/20 sm:text-base"
           />
           {query ? (
@@ -113,76 +70,68 @@ export function OnlineDesignExplorer({
             </button>
           ) : null}
         </div>
+      </div>
 
-        {/* Quick Search Tags */}
-        <div className="mt-3 flex flex-wrap items-center justify-center gap-2 text-xs">
-          <span className="font-semibold text-stone">Popular:</span>
-          {QUICK_SEARCHES.map((term) => (
-            <button
-              key={term}
-              type="button"
-              onClick={() => {
-                setCategory("All");
-                setQuery(term);
-              }}
-              className="rounded-full border border-[#E6DFD3] bg-white px-3 py-1 font-medium text-charcoal/80 transition hover:border-[#d4af37] hover:text-[#9A742E]"
-            >
-              {term}
-            </button>
-          ))}
+      {/* Category Filter Pills (Auto-generated from your Admin Designs) */}
+      {categories.length > 1 ? (
+        <div className="mt-8 flex flex-wrap items-center justify-center gap-2.5">
+          {categories.map((cat) => {
+            const active = category === cat;
+            return (
+              <button
+                key={cat}
+                type="button"
+                onClick={() => setCategory(cat)}
+                className={`rounded-full border px-5 py-2 text-xs font-extrabold uppercase tracking-wider transition-all ${
+                  active
+                    ? "border-charcoal bg-charcoal text-[#d4af37] shadow-sm"
+                    : "border-[#DFD5C5] bg-white text-charcoal hover:border-charcoal"
+                }`}
+              >
+                {cat}
+              </button>
+            );
+          })}
         </div>
-      </div>
-
-      {/* Category Filter Pills */}
-      <div className="mt-8 flex flex-wrap items-center justify-center gap-2.5">
-        {CATEGORIES.map((cat) => {
-          const active = category === cat;
-          return (
-            <button
-              key={cat}
-              type="button"
-              onClick={() => setCategory(cat)}
-              className={`rounded-full border px-5 py-2 text-xs font-extrabold uppercase tracking-wider transition-all ${
-                active
-                  ? "border-charcoal bg-charcoal text-[#d4af37] shadow-sm"
-                  : "border-[#DFD5C5] bg-white text-charcoal hover:border-charcoal"
-              }`}
-            >
-              {cat}
-            </button>
-          );
-        })}
-      </div>
+      ) : null}
 
       {/* Designs Grid */}
-      {loading ? (
-        <div className="mt-16 flex flex-col items-center justify-center py-12 text-stone">
-          <Loader2 className="size-8 animate-spin text-[#9A742E]" aria-hidden="true" />
-          <p className="mt-3 text-sm font-medium">Loading interior designs...</p>
-        </div>
-      ) : combined.length === 0 ? (
+      {filteredDesigns.length === 0 ? (
         <div className="mt-14 rounded-3xl border border-[#EAE4D9] bg-white p-12 text-center">
           <Sparkles className="mx-auto size-10 text-[#9A742E]/60" aria-hidden="true" />
           <h3 className="mt-4 font-sans text-xl font-extrabold text-charcoal">
-            No matching designs found
+            {adminDesigns.length === 0
+              ? "New designs coming soon"
+              : "No matching designs found"}
           </h3>
           <p className="mx-auto mt-2 max-w-md text-sm text-stone">
-            Try searching for &ldquo;POP&rdquo;, &ldquo;PVC&rdquo;, &ldquo;Bedroom&rdquo;, or &ldquo;LED&rdquo;, or send us your own reference idea!
+            {adminDesigns.length === 0
+              ? "We are curating our latest POP & PVC design catalog. Have a reference photo? Send it to us directly!"
+              : "Try clearing your search or selecting another category."}
           </p>
-          <button
-            type="button"
-            onClick={() => {
-              setQuery("");
-              setCategory("All");
-            }}
-            className="mt-5 rounded-full bg-charcoal px-6 py-2.5 text-xs font-bold uppercase tracking-wider text-[#d4af37]"
-          >
-            Reset Filters
-          </button>
+          {adminDesigns.length > 0 ? (
+            <button
+              type="button"
+              onClick={() => {
+                setQuery("");
+                setCategory("All");
+              }}
+              className="mt-5 rounded-full bg-charcoal px-6 py-2.5 text-xs font-bold uppercase tracking-wider text-[#d4af37]"
+            >
+              Reset Filters
+            </button>
+          ) : (
+            <Link
+              href="/custom-design"
+              className="mt-5 inline-block rounded-full bg-charcoal px-6 py-2.5 text-xs font-bold uppercase tracking-wider text-[#d4af37]"
+            >
+              Send Reference Design
+            </Link>
+          )}
         </div>
       ) : (
         <div className="mt-12 grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-4">
-          {combined.map((item) => {
+          {filteredDesigns.map((item) => {
             const whatsappHref = buildWhatsAppLink({
               whatsappNumber,
               message: buildEnquiryMessage({
